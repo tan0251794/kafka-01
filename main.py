@@ -25,20 +25,19 @@ else:
     logger.info('Topic đã tồn tại!')
 
 # send() send and forget
+# Block for 'synchronous' sends
+from kafka import KafkaProducer
 from kafka.errors import KafkaError
 producer = KafkaProducer(
         bootstrap_servers='localhost:9092'
     )
 
-# try:
-#     future = producer.send('topic_1', b'From program')
-#     record_metadata = future.get(timeout=60)
-#     producer.flush()
-# except KafkaError as exc:
-#     print("Exception during getting assigned partitions - {}".format(exc))
-#     # Decide what to do if produce request failed...
-#     pass
+# produce asynchronously with callbacks
+def on_send_success(record_metadata):
+    print(f'{record_metadata.topic}, {record_metadata.partition}, {record_metadata.offset}')
 
-for _ in range(100):
-    future = producer.send('topic_1', b'From program')
-    future.get()
+def on_send_error(excp):
+    logger.error('I am an errback', exc_info=excp)
+
+producer.send('topic_1', b'raw_bytes').add_callback(on_send_success).add_errback(on_send_error)
+producer = KafkaProducer(retries=5) # configure multiple retries
